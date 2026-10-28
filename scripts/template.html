@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PTCG 賽事雷達 (PTCG Event Radar) —— 台灣寶可夢卡牌賽事智慧搜尋平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            pokeRed: '#EF4444',
+            pokeYellow: '#FACC15',
+            pokeBlue: '#3B82F6',
+            radarCyan: '#06B6D4',
+            darkBg: '#0F172A',
+            cardBg: '#1E293B',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @keyframes pulseSlow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.03); }
+    }
+    .radar-pulse {
+      animation: pulseSlow 3s infinite ease-in-out;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 min-h-screen font-sans antialiased selection:bg-amber-400 selection:text-slate-900">
+
+  <!-- Top Navbar -->
+  <header class="sticky top-0 z-50 backdrop-blur-md bg-[#0f172a]/90 border-b border-slate-800 shadow-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      
+      <!-- Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-rose-500/20 radar-pulse">
+          <i class="fa-solid fa-radar text-white text-xl"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-black tracking-tight bg-gradient-to-r from-amber-300 via-yellow-400 to-rose-400 bg-clip-text text-transparent">
+              PTCG 賽事雷達
+            </h1>
+            <span class="text-[11px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/30">
+              Taiwan Radar
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">台灣寶可夢卡牌賽事智慧搜尋平台 • 即時官方串接</p>
+        </div>
+      </div>
+
+      <!-- Location & Mode Controls -->
+      <div class="flex items-center gap-3 flex-wrap">
+        
+        <!-- GPS Selector -->
+        <div class="flex items-center bg-slate-800/80 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs shadow-inner gap-2">
+          <i class="fa-solid fa-location-dot text-rose-400 text-sm"></i>
+          <span class="text-slate-400 font-medium">中心定位：</span>
+          <select id="locationSelect" class="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer">
+            <option value="gps" class="bg-slate-800 text-slate-200">🛰️ 我的即時 GPS 定位</option>
+            <option value="25.0478,121.5170" selected class="bg-slate-800 text-slate-200">📍 台北車站</option>
+            <option value="25.0136,121.4637" class="bg-slate-800 text-slate-200">📍 新北板橋車站</option>
+            <option value="24.9892,121.3135" class="bg-slate-800 text-slate-200">📍 桃園車站</option>
+            <option value="24.8096,120.9750" class="bg-slate-800 text-slate-200">📍 新竹巨城</option>
+            <option value="24.1368,120.6850" class="bg-slate-800 text-slate-200">📍 台中車站</option>
+            <option value="22.9971,120.2129" class="bg-slate-800 text-slate-200">📍 台南車站</option>
+            <option value="22.6397,120.3021" class="bg-slate-800 text-slate-200">📍 高雄車站</option>
+          </select>
+        </div>
+
+        <!-- Favorites Toggle -->
+        <button id="favoriteToggleBtn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-700 border border-slate-700 transition shadow-sm">
+          <i class="fa-solid fa-heart text-slate-400" id="favIcon"></i>
+          <span>我的收藏</span>
+          <span id="favCount" class="ml-0.5 px-1.5 py-0.2 bg-rose-500/20 text-rose-400 rounded-full font-bold">0</span>
+        </button>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Section: Hot Events Radar (身邊熱門賽事雷達專區) -->
+    <section class="bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-2xl relative overflow-hidden">
+      <!-- Glow Effect -->
+      <div class="absolute -top-24 -right-24 w-72 h-72 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="relative z-10">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="inline-flex items-center justify-center p-2 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30">
+              <i class="fa-solid fa-fire text-lg"></i>
+            </span>
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-base sm:text-lg font-bold text-white tracking-wide">
+                  當下最靚 • 身邊熱門賽事雷達
+                </h2>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 animate-pulse font-medium">
+                  AI 智慧推播
+                </span>
+              </div>
+              <p class="text-xs text-slate-400">綜合開賽時間近度、地理距離與名額熱度，自動精選最佳賽事</p>
+            </div>
+          </div>
+          <div id="radarLocationLabel" class="text-xs text-amber-400 bg-amber-400/10 border border-amber-400/30 px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
+            <i class="fa-solid fa-compass animate-spin" style="animation-duration: 8s;"></i>
+            <span>以目前位置半徑搜尋中</span>
+          </div>
+        </div>
+
+        <!-- Radar Cards Grid -->
+        <div id="radarCardsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Dynamically Injected -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: Advanced Filtering Menu (智慧多條件選單與篩選器) -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+      
+      <!-- Top search bar + fast tags -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+        <!-- Search Keyword -->
+        <div class="md:col-span-5 relative">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input 
+            type="text" 
+            id="keywordInput"
+            placeholder="搜尋店家（如：卡之洞、法雅客、宏鼎）或賽事名稱..." 
+            class="w-full pl-10 pr-4 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 transition"
+          />
+        </div>
+
+        <!-- City Dropdown -->
+        <div class="md:col-span-2 relative">
+          <select id="citySelect" class="w-full py-2 px-3 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-amber-400 transition cursor-pointer">
+            <option value="all">📍 全台所有縣市</option>
+            <option value="台北市">台北市</option>
+            <option value="新北市">新北市</option>
+            <option value="桃園市">桃園市</option>
+            <option value="台中市">台中市</option>
+            <option value="台南市">台南市</option>
+            <option value="高雄市">高雄市</option>
+            <option value="新竹市,新竹縣">新竹縣市</option>
+            <option value="其他">其他縣市</option>
+          </select>
+        </div>
+
+        <!-- Category Dropdown -->
+        <div class="md:col-span-3 relative">
+          <select id="categorySelect" class="w-full py-2 px-3 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-amber-400 transition cursor-pointer">
+            <option value="all">🏆 全部賽事類型</option>
+            <option value="道館賽">道館賽 (Gym Battle)</option>
+            <option value="卡牌日">卡牌日 (Card Day)</option>
+            <option value="認真對戰">認真對戰賽 (Earnest Battle)</option>
+            <option value="城市聯盟賽">城市聯盟賽 (City League)</option>
+            <option value="新手">新手體驗 / 教學賽</option>
+          </select>
+        </div>
+
+        <!-- Sort Dropdown -->
+        <div class="md:col-span-2 relative">
+          <select id="sortSelect" class="w-full py-2 px-3 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-amber-400 font-semibold focus:outline-none focus:border-amber-400 transition cursor-pointer">
+            <option value="distance">📍 距離由近到遠</option>
+            <option value="time">⏰ 開賽時間由近到遠</option>
+            <option value="hot">🔥 報名熱度最高</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Date Pills -->
+      <div class="flex items-center gap-2 flex-wrap text-xs pt-1 border-t border-slate-800/80">
+        <span class="text-slate-400 font-medium mr-1"><i class="fa-regular fa-calendar-days mr-1"></i>日期區間：</span>
+        <button class="date-filter-btn px-3 py-1 rounded-lg border border-amber-400/40 bg-amber-400/10 text-amber-300 font-semibold transition hover:bg-amber-400/20" data-date="all">
+          全部日期
+        </button>
+        <button class="date-filter-btn px-3 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-medium transition hover:border-slate-500" data-date="today">
+          🔥 今天開打
+        </button>
+        <button class="date-filter-btn px-3 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-medium transition hover:border-slate-500" data-date="weekend">
+          🎉 本週末
+        </button>
+        <button class="date-filter-btn px-3 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-medium transition hover:border-slate-500" data-date="next7">
+          未來 7 天
+        </button>
+
+        <div class="ml-auto text-xs text-slate-400 flex items-center gap-2">
+          <span>共找到 <strong id="matchCount" class="text-amber-400 font-bold">0</strong> 場賽事</span>
+          <button id="resetFiltersBtn" class="text-slate-400 hover:text-rose-400 underline transition">
+            重設篩選
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section: Event Cards List (賽事資訊卡片列表) -->
+    <section>
+      <!-- Cards Grid -->
+      <div id="eventsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Dynamically injected -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden text-center py-16 bg-slate-900/60 rounded-2xl border border-dashed border-slate-800 space-y-3">
+        <div class="w-16 h-16 mx-auto rounded-full bg-slate-800 flex items-center justify-center text-slate-500 text-2xl">
+          <i class="fa-solid fa-ghost"></i>
+        </div>
+        <h3 class="text-base font-semibold text-slate-300">沒有找到符合條件的賽事</h3>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto">嘗試放寬日期範圍、切換縣市或清除關鍵字搜尋試試看！</p>
+        <button onclick="resetAllFilters()" class="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold text-xs transition">
+          一鍵清除所有篩選
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-12 border-t border-slate-800/80 bg-slate-950/80 py-6 text-center text-xs text-slate-500 space-y-2">
+    <p>PTCG 賽事雷達 (PTCG Event Radar) • 專為台灣寶可夢卡牌玩家打造的智慧搜尋平台</p>
+    <p class="text-[11px] text-slate-600">
+      賽事資料來源：<a href="https://asia.pokemon-card.com/tw/event/" target="_blank" class="text-slate-400 hover:text-amber-400 underline">寶可夢卡牌遊戲台灣官方活動網站</a>
+      • Pokémon, Pokémon TCG 皆為 The Pokémon Company / Nintendo 之商標。
+    </p>
+  </footer>
+
+  <!-- Raw Embedded JSON Database -->
+  <script id="embedded-events" type="application/json">
+__JSON_PLACEHOLDER__
+  </script>
+
+  <!-- Application Logic -->
+  <script>
+    // State
+    let allEvents = [];
+    let currentCoords = { lat: 25.0478, lng: 121.5170 }; // default: Taipei Main Station
+    let filterDate = 'all';
+    let filterCategory = 'all';
+    let filterCity = 'all';
+    let filterKeyword = '';
+    let sortMode = 'distance';
+    let showFavoritesOnly = false;
+    let favorites = JSON.parse(localStorage.getItem('ptcg_radar_favs') || '[]');
+
+    // Haversine Distance Calculation (km)
+    function calcDistance(lat1, lon1, lat2, lon2) {
+      if (!lat1 || !lon1 || !lat2 || !lon2) return 9999;
+      const R = 6371; // Earth radius in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return Math.round(R * c * 10) / 10;
+    }
+
+    // Initialize Data
+    function initData() {
+      try {
+        const raw = document.getElementById('embedded-events').textContent.trim();
+        if (raw && !raw.includes('__JSON_PLACEHOLDER__')) {
+          const parsed = JSON.parse(raw);
+          allEvents = parsed.events || [];
+        }
+      } catch (e) {
+        console.error("Failed to parse embedded events:", e);
+      }
+
+      // If empty, fetch from data/events.json
+      if (allEvents.length === 0) {
+        fetch('data/events.json')
+          .then(res => res.json())
+          .then(data => {
+            allEvents = data.events || [];
+            updateApp();
+          })
+          .catch(err => console.warn("Fetch fallback error:", err));
+      } else {
+        updateApp();
+      }
+    }
+
+    // Toggle Favorite
+    function toggleFavorite(id, e) {
+      if (e) e.stopPropagation();
+      const idx = favorites.indexOf(id);
+      if (idx >= 0) {
+        favorites.splice(idx, 1);
+      } else {
+        favorites.push(id);
+      }
+      localStorage.setItem('ptcg_radar_favs', JSON.stringify(favorites));
+      updateFavUI();
+      renderEvents();
+    }
+
+    function updateFavUI() {
+      const countEl = document.getElementById('favCount');
+      const iconEl = document.getElementById('favIcon');
+      if (countEl) countEl.textContent = favorites.length;
+      if (iconEl) {
+        if (showFavoritesOnly) {
+          iconEl.className = 'fa-solid fa-heart text-rose-500';
+        } else {
+          iconEl.className = 'fa-solid fa-heart ' + (favorites.length > 0 ? 'text-rose-400' : 'text-slate-400');
+        }
+      }
+    }
+
+    // Filter and Sort Events
+    function getFilteredEvents() {
+      const now = new Date();
+      const todayStr = (now.getMonth() + 1).toString().padStart(2, '0') + '-' + now.getDate().toString().padStart(2, '0');
+
+      return allEvents.filter(ev => {
+        // Favorites
+        if (showFavoritesOnly && !favorites.includes(ev.id)) {
+          return false;
+        }
+
+        // Keyword
+        if (filterKeyword) {
+          const kw = filterKeyword.toLowerCase();
+          const matchStore = (ev.store || '').toLowerCase().includes(kw);
+          const matchTitle = (ev.title || '').toLowerCase().includes(kw);
+          const matchAddr = (ev.address || '').toLowerCase().includes(kw);
+          if (!matchStore && !matchTitle && !matchAddr) return false;
+        }
+
+        // City
+        if (filterCity !== 'all') {
+          const cities = filterCity.split(',');
+          let matched = false;
+          for (let c of cities) {
+            if (c === '其他') {
+              if (!['台北市','新北市','桃園市','台中市','台南市','高雄市','新竹市','新竹縣'].includes(ev.city)) {
+                matched = true;
+                break;
+              }
+            } else if (ev.city === c) {
+              matched = true;
+              break;
+            }
+          }
+          if (!matched) return false;
+        }
+
+        // Category
+        if (filterCategory !== 'all') {
+          if (!ev.category.includes(filterCategory)) return false;
+        }
+
+        // Date
+        if (filterDate === 'today') {
+          if (ev.displayDate !== todayStr) return false;
+        }
+
+        return true;
+      }).map(ev => {
+        // Calculate distance
+        const dist = calcDistance(currentCoords.lat, currentCoords.lng, ev.lat, ev.lng);
+        return { ...ev, distance: dist };
+      }).sort((a, b) => {
+        if (sortMode === 'distance') {
+          return a.distance - b.distance;
+        } else if (sortMode === 'time') {
+          return (a.displayDate + a.time).localeCompare(b.displayDate + b.time);
+        } else if (sortMode === 'hot') {
+          return b.hotScore - a.hotScore;
+        }
+        return 0;
+      });
+    }
+
+    // Render Hot Events Radar (Top 3)
+    function renderRadar(events) {
+      const container = document.getElementById('radarCardsGrid');
+      if (!container) return;
+
+      if (events.length === 0) {
+        container.innerHTML = '<div class="col-span-3 text-center py-6 text-xs text-slate-500">目前設定範圍內暫無符合推薦</div>';
+        return;
+      }
+
+      const top3 = events.slice(0, 3);
+
+      container.innerHTML = top3.map((ev, index) => {
+        const isFav = favorites.includes(ev.id);
+        const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.address)}`;
+        
+        let badgeColor = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+        let badgeText = `📍 距離您最近 (${ev.distance} km)`;
+        if (index === 0 && ev.distance < 5) {
+          badgeText = `🔥 距離僅 ${ev.distance} km • 推薦首選`;
+        } else if (ev.isFull) {
+          badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+          badgeText = '⚡ 報名熱門 • 即將額滿';
+        } else if (index === 1) {
+          badgeColor = 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40';
+          badgeText = `🏆 精選賽事 (${ev.distance} km)`;
+        }
+
+        return `
+          <div class="bg-slate-800/90 hover:bg-slate-800 border border-indigo-500/30 hover:border-amber-400/50 rounded-xl p-4 transition-all duration-300 shadow-lg hover:shadow-indigo-500/10 flex flex-col justify-between group">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded-full border ${badgeColor}">
+                  ${badgeText}
+                </span>
+                <button onclick="toggleFavorite('${ev.id}', event)" class="text-slate-400 hover:text-rose-400 transition text-sm">
+                  <i class="${isFav ? 'fa-solid text-rose-500' : 'fa-regular'} fa-heart"></i>
+                </button>
+              </div>
+
+              <h4 class="font-bold text-sm text-slate-100 group-hover:text-amber-300 transition line-clamp-1">
+                ${ev.title}
+              </h4>
+              
+              <div class="mt-2.5 space-y-1.5 text-xs text-slate-300">
+                <div class="flex items-center gap-2">
+                  <span class="text-amber-400 font-semibold"><i class="fa-regular fa-clock mr-1"></i>${ev.displayDate} ${ev.time}</span>
+                  <span class="text-slate-500">•</span>
+                  <span class="text-slate-400">${ev.format || '標準賽制'}</span>
+                </div>
+                <div class="flex items-center gap-1.5 text-slate-400">
+                  <i class="fa-solid fa-store text-indigo-400"></i>
+                  <span class="font-medium text-slate-200">${ev.store}</span>
+                  <span class="text-slate-500 font-normal">(${ev.city} ${ev.district || ''})</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-700/80 flex items-center justify-between gap-2">
+              <a href="${mapUrl}" target="_blank" class="flex-1 py-1.5 px-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-lg text-center transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-location-arrow text-cyan-400"></i>
+                導航
+              </a>
+              <a href="${ev.officialLink}" target="_blank" class="flex-1 py-1.5 px-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-lg text-center transition flex items-center justify-center gap-1.5 shadow-sm">
+                官方詳情
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+              </a>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Render Event Cards Grid
+    function renderEvents() {
+      const filtered = getFilteredEvents();
+      const container = document.getElementById('eventsGrid');
+      const emptyState = document.getElementById('emptyState');
+      const matchCountEl = document.getElementById('matchCount');
+
+      if (matchCountEl) matchCountEl.textContent = filtered.length;
+
+      // Also update Radar with current filtered
+      renderRadar(filtered);
+
+      if (filtered.length === 0) {
+        if (container) container.innerHTML = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+      }
+
+      if (emptyState) emptyState.classList.add('hidden');
+
+      container.innerHTML = filtered.map(ev => {
+        const isFav = favorites.includes(ev.id);
+        const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.address)}`;
+        
+        let tagColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30';
+        if (ev.tag.includes('Earnest')) {
+          tagColor = 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+        } else if (ev.tag.includes('Gym')) {
+          tagColor = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+        }
+
+        const hotPercent = Math.min(100, Math.round((ev.registered / ev.capacity) * 100));
+
+        return `
+          <div class="bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 transition-all duration-200 flex flex-col justify-between shadow-md hover:shadow-xl group">
+            
+            <div>
+              <!-- Top Badges & Fav -->
+              <div class="flex items-center justify-between gap-2 mb-2.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md border ${tagColor}">
+                    ${ev.tag || '道館賽'}
+                  </span>
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 flex items-center gap-1">
+                    <i class="fa-solid fa-location-dot text-[10px]"></i>
+                    ${ev.distance} km
+                  </span>
+                </div>
+                <button onclick="toggleFavorite('${ev.id}', event)" class="p-1 text-slate-400 hover:text-rose-400 transition" title="收藏賽事">
+                  <i class="${isFav ? 'fa-solid text-rose-500' : 'fa-regular'} fa-heart text-base"></i>
+                </button>
+              </div>
+
+              <!-- Title -->
+              <h3 class="font-bold text-sm text-slate-100 group-hover:text-amber-400 transition leading-snug line-clamp-2">
+                ${ev.title}
+              </h3>
+
+              <!-- Meta Info -->
+              <div class="mt-3 space-y-1.5 text-xs">
+                <!-- Date & Time -->
+                <div class="flex items-center gap-2 text-slate-300">
+                  <i class="fa-regular fa-calendar-check text-amber-400 w-4 text-center"></i>
+                  <span class="font-bold text-amber-300">${ev.displayDate}</span>
+                  <span class="text-slate-400">${ev.time}</span>
+                  <span class="text-slate-600">|</span>
+                  <span class="text-slate-400 truncate">${ev.format || '標準賽制'}</span>
+                </div>
+
+                <!-- Store -->
+                <div class="flex items-center gap-2 text-slate-300">
+                  <i class="fa-solid fa-shop text-rose-400 w-4 text-center"></i>
+                  <span class="font-semibold text-slate-100">${ev.store}</span>
+                  <span class="text-[11px] text-slate-400 font-normal">(${ev.city})</span>
+                </div>
+
+                <!-- Address -->
+                <div class="flex items-start gap-2 text-slate-400">
+                  <i class="fa-solid fa-map-pin text-slate-500 w-4 text-center mt-0.5"></i>
+                  <a href="${mapUrl}" target="_blank" class="hover:text-amber-400 hover:underline transition line-clamp-1" title="在 Google Maps 開啟">
+                    ${ev.address}
+                  </a>
+                </div>
+              </div>
+
+              <!-- Capacity & Hotness Bar -->
+              <div class="mt-3 pt-2.5 border-t border-slate-800/80">
+                <div class="flex justify-between text-[11px] font-medium text-slate-400 mb-1">
+                  <span>報名名額：<strong class="text-slate-200">${ev.registered} / ${ev.capacity}</strong></span>
+                  <span class="${ev.isFull ? 'text-rose-400 font-bold' : 'text-slate-400'}">${ev.isFull ? '🔥 已額滿' : '開放中'}</span>
+                </div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full ${ev.isFull ? 'bg-gradient-to-r from-amber-500 to-rose-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'}" style="width: ${hotPercent}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-4 pt-3 border-t border-slate-800 flex items-center gap-2">
+              <a href="${mapUrl}" target="_blank" class="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl text-center transition flex items-center justify-center gap-1.5 border border-slate-700">
+                <i class="fa-solid fa-diamond-turn-right text-cyan-400 text-xs"></i>
+                一鍵導航
+              </a>
+              <a href="${ev.officialLink}" target="_blank" class="flex-1 py-1.5 px-2 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-900 text-xs font-bold rounded-xl text-center transition flex items-center justify-center gap-1.5 shadow-sm">
+                官方詳情
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+              </a>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateApp() {
+      updateFavUI();
+      renderEvents();
+    }
+
+    function resetAllFilters() {
+      filterDate = 'all';
+      filterCategory = 'all';
+      filterCity = 'all';
+      filterKeyword = '';
+      sortMode = 'distance';
+      showFavoritesOnly = false;
+
+      document.getElementById('keywordInput').value = '';
+      document.getElementById('citySelect').value = 'all';
+      document.getElementById('categorySelect').value = 'all';
+      document.getElementById('sortSelect').value = 'distance';
+
+      document.querySelectorAll('.date-filter-btn').forEach(btn => {
+        if (btn.dataset.date === 'all') {
+          btn.className = 'date-filter-btn px-3 py-1 rounded-lg border border-amber-400/40 bg-amber-400/10 text-amber-300 font-semibold transition hover:bg-amber-400/20';
+        } else {
+          btn.className = 'date-filter-btn px-3 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-medium transition hover:border-slate-500';
+        }
+      });
+
+      updateApp();
+    }
+
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      // Keyword
+      const kwInput = document.getElementById('keywordInput');
+      if (kwInput) {
+        kwInput.addEventListener('input', (e) => {
+          filterKeyword = e.target.value.trim();
+          renderEvents();
+        });
+      }
+
+      // City
+      const citySel = document.getElementById('citySelect');
+      if (citySel) {
+        citySel.addEventListener('change', (e) => {
+          filterCity = e.target.value;
+          renderEvents();
+        });
+      }
+
+      // Category
+      const catSel = document.getElementById('categorySelect');
+      if (catSel) {
+        catSel.addEventListener('change', (e) => {
+          filterCategory = e.target.value;
+          renderEvents();
+        });
+      }
+
+      // Sort
+      const sortSel = document.getElementById('sortSelect');
+      if (sortSel) {
+        sortSel.addEventListener('change', (e) => {
+          sortMode = e.target.value;
+          renderEvents();
+        });
+      }
+
+      // Date Buttons
+      document.querySelectorAll('.date-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          filterDate = btn.dataset.date;
+          document.querySelectorAll('.date-filter-btn').forEach(b => {
+            b.className = 'date-filter-btn px-3 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 font-medium transition hover:border-slate-500';
+          });
+          btn.className = 'date-filter-btn px-3 py-1 rounded-lg border border-amber-400/40 bg-amber-400/10 text-amber-300 font-semibold transition hover:bg-amber-400/20';
+          renderEvents();
+        });
+      });
+
+      // Location Select
+      const locSel = document.getElementById('locationSelect');
+      if (locSel) {
+        locSel.addEventListener('change', (e) => {
+          const val = e.target.value;
+          const radarLabel = document.getElementById('radarLocationLabel');
+          if (val === 'gps') {
+            if (navigator.geolocation) {
+              if (radarLabel) radarLabel.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> 定位中...';
+              navigator.geolocation.getCurrentPosition(
+                pos => {
+                  currentCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                  if (radarLabel) radarLabel.innerHTML = '<i class="fa-solid fa-location-crosshairs text-emerald-400"></i> 已使用真實 GPS 定位';
+                  renderEvents();
+                },
+                err => {
+                  alert('無法取得您的位置資訊，將切換為台北車站。');
+                  locSel.value = '25.0478,121.5170';
+                  currentCoords = { lat: 25.0478, lng: 121.5170 };
+                  if (radarLabel) radarLabel.innerHTML = '<i class="fa-solid fa-compass"></i> 台北車站';
+                  renderEvents();
+                }
+              );
+            } else {
+              alert('您的瀏覽器不支援地理定位 API。');
+              locSel.value = '25.0478,121.5170';
+            }
+          } else {
+            const parts = val.split(',');
+            currentCoords = { lat: parseFloat(parts[0]), lng: parseFloat(parts[1]) };
+            const selectedText = locSel.options[locSel.selectedIndex].text.replace('📍 ', '');
+            if (radarLabel) radarLabel.innerHTML = `<i class="fa-solid fa-compass"></i> ${selectedText}`;
+            renderEvents();
+          }
+        });
+      }
+
+      // Favorite toggle
+      const favBtn = document.getElementById('favoriteToggleBtn');
+      if (favBtn) {
+        favBtn.addEventListener('click', () => {
+          showFavoritesOnly = !showFavoritesOnly;
+          favBtn.classList.toggle('border-rose-500', showFavoritesOnly);
+          favBtn.classList.toggle('bg-rose-500/10', showFavoritesOnly);
+          updateFavUI();
+          renderEvents();
+        });
+      }
+
+      // Reset
+      const resetBtn = document.getElementById('resetFiltersBtn');
+      if (resetBtn) resetBtn.addEventListener('click', resetAllFilters);
+
+      initData();
+    });
+  </script>
+</body>
+</html>
